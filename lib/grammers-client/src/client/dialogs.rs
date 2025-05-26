@@ -17,8 +17,7 @@ const MAX_LIMIT: usize = 100;
 pub type DialogIter = IterBuffer<tl::functions::messages::GetDialogs, Dialog>;
 
 impl DialogIter {
-    fn new(client: &Client) -> Self {
-        // TODO let users tweak all the options from the request
+    pub fn new(client: &Client) -> Self {
         Self::from_request(
             client,
             MAX_LIMIT,
@@ -32,6 +31,14 @@ impl DialogIter {
                 hash: 0,
             },
         )
+    }
+
+    pub fn new_with_parameters(
+        client: &Client,
+        limit: usize,
+        request: tl::functions::messages::GetDialogs,
+    ) -> Self {
+        Self::from_request(client, limit, request)
     }
 
     /// Determines how many dialogs there are in total.
