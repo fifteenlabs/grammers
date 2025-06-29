@@ -13,9 +13,10 @@ use crate::types::{ChatMap, Update};
 use futures_util::future::{Either, select};
 use grammers_mtsender::utils::sleep_until;
 pub use grammers_mtsender::{AuthorizationError, InvocationError};
-use grammers_session::channel_id;
+use grammers_session::{ChatHashCache, MessageBoxes, State, UpdatesLike};
 pub use grammers_session::{PrematureEndReason, UpdateState};
 use grammers_tl_types as tl;
+use log::{trace, warn};
 use std::pin::pin;
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,6 +24,45 @@ use web_time::Instant;
 
 /// How long to wait after warning the user that the updates limit was exceeded.
 const UPDATE_LIMIT_EXCEEDED_LOG_COOLDOWN: Duration = Duration::from_secs(300);
+
+// See https://core.telegram.org/method/updates.getChannelDifference.
+const BOT_CHANNEL_DIFF_LIMIT: i32 = 100000;
+const USER_CHANNEL_DIFF_LIMIT: i32 = 100;
+
+fn prepare_channel_difference(
+    mut request: tl::functions::updates::GetChannelDifference,
+    chat_hashes: &ChatHashCache,
+    message_box: &mut MessageBoxes,
+) -> Option<tl::functions::updates::GetChannelDifference> {
+    let id = match &request.channel {
+        tl::enums::InputChannel::Channel(channel) => channel.channel_id,
+        _ => unreachable!(),
+    };
+
+    if let Some(packed) = chat_hashes.get(id) {
+        request.channel = tl::types::InputChannel {
+            channel_id: packed.id,
+            access_hash: packed
+                .access_hash
+                .expect("chat_hashes had chat without hash"),
+        }
+        .into();
+        request.limit = if chat_hashes.is_self_bot() {
+            BOT_CHANNEL_DIFF_LIMIT
+        } else {
+            USER_CHANNEL_DIFF_LIMIT
+        };
+        trace!("requesting {:?}", request);
+        Some(request)
+    } else {
+        warn!(
+            "cannot getChannelDifference for {} as we're missing its hash",
+            id
+        );
+        message_box.end_channel_difference(PrematureEndReason::Banned);
+        None
+    }
+}
 
 impl Client {
     /// Returns the next update from the buffer where they are queued until used.
@@ -47,13 +87,8 @@ impl Client {
     /// # }
     /// ```
     pub async fn next_update(&self) -> Result<Update, InvocationError> {
-        loop {
-            let (update, chats) = self.next_raw_update().await?;
-
-            if let Some(update) = Update::new(self, update, &chats) {
-                return Ok(update);
-            }
-        }
+        let (update, state, chats) = self.next_raw_update().await?;
+        Ok(Update::new(self, update, state, &chats))
     }
 
     /// Returns the next raw update and associated chat map from the buffer where they are queued until used.
@@ -63,7 +98,7 @@ impl Client {
     /// ```
     /// # async fn f(client: grammers_client::Client) -> Result<(), Box<dyn std::error::Error>> {
     /// loop {
-    ///     let (update, chats) = client.next_raw_update().await?;
+    ///     let (update, state, chats) = client.next_raw_update().await?;
     ///
     ///     // Print all incoming updates in their raw form
     ///     dbg!(update);
@@ -77,7 +112,7 @@ impl Client {
     ///
     pub async fn next_raw_update(
         &self,
-    ) -> Result<(tl::enums::Update, Arc<ChatMap>), InvocationError> {
+    ) -> Result<(tl::enums::Update, State, Arc<ChatMap>), InvocationError> {
         loop {
             let (deadline, get_diff, get_channel_diff) = {
                 let state = &mut *self.0.state.write().unwrap();
@@ -87,7 +122,9 @@ impl Client {
                 (
                     state.message_box.check_deadlines(), // first, as it might trigger differences
                     state.message_box.get_difference(),
-                    state.message_box.get_channel_difference(&state.chat_hashes),
+                    state.message_box.get_channel_difference().and_then(|gd| {
+                        prepare_channel_difference(gd, &state.chat_hashes, &mut state.message_box)
+                    }),
                 )
             };
 
@@ -95,9 +132,9 @@ impl Client {
                 let response = self.invoke(&request).await?;
                 let (updates, users, chats) = {
                     let state = &mut *self.0.state.write().unwrap();
-                    state
-                        .message_box
-                        .apply_difference(response, &mut state.chat_hashes)
+                    let (updates, users, chats) = state.message_box.apply_difference(response);
+                    let _ = state.chat_hashes.extend(&users, &chats);
+                    (updates, users, chats)
                 };
                 self.extend_update_queue(updates, ChatMap::new(users, chats));
                 continue;
@@ -129,19 +166,14 @@ impl Client {
                                 .write()
                                 .unwrap()
                                 .message_box
-                                .end_channel_difference(
-                                    &request,
-                                    PrematureEndReason::TemporaryServerIssues,
-                                );
+                                .end_channel_difference(PrematureEndReason::TemporaryServerIssues);
                         }
                         continue;
                     }
                     Err(e) if e.is("CHANNEL_PRIVATE") => {
                         log::info!(
-                            "Account is now banned in {} so we can no longer fetch updates from it",
-                            channel_id(&request)
-                                .map(|i| i.to_string())
-                                .unwrap_or_else(|| "empty channel".into())
+                            "Account is now banned so we can no longer fetch updates with request: {:?}",
+                            request
                         );
                         {
                             self.0
@@ -149,7 +181,7 @@ impl Client {
                                 .write()
                                 .unwrap()
                                 .message_box
-                                .end_channel_difference(&request, PrematureEndReason::Banned);
+                                .end_channel_difference(PrematureEndReason::Banned);
                         }
                         continue;
                     }
@@ -161,10 +193,7 @@ impl Client {
                                 .write()
                                 .unwrap()
                                 .message_box
-                                .end_channel_difference(
-                                    &request,
-                                    PrematureEndReason::TemporaryServerIssues,
-                                );
+                                .end_channel_difference(PrematureEndReason::TemporaryServerIssues);
                         }
                         continue;
                     }
@@ -173,11 +202,10 @@ impl Client {
 
                 let (updates, users, chats) = {
                     let state = &mut *self.0.state.write().unwrap();
-                    state.message_box.apply_channel_difference(
-                        request,
-                        response,
-                        &mut state.chat_hashes,
-                    )
+                    let (updates, users, chats) =
+                        state.message_box.apply_channel_difference(response);
+                    let _ = state.chat_hashes.extend(&users, &chats);
+                    (updates, users, chats)
                 };
 
                 self.extend_update_queue(updates, ChatMap::new(users, chats));
@@ -194,7 +222,7 @@ impl Client {
         }
     }
 
-    pub(crate) fn process_socket_updates(&self, all_updates: Vec<tl::enums::Updates>) {
+    pub(crate) fn process_socket_updates(&self, all_updates: Vec<UpdatesLike>) {
         if all_updates.is_empty() {
             return;
         }
@@ -204,17 +232,7 @@ impl Client {
             let state = &mut *self.0.state.write().unwrap();
 
             for updates in all_updates {
-                if state
-                    .message_box
-                    .ensure_known_peer_hashes(&updates, &mut state.chat_hashes)
-                    .is_err()
-                {
-                    continue;
-                }
-                match state
-                    .message_box
-                    .process_updates(updates, &state.chat_hashes)
-                {
+                match state.message_box.process_updates(updates) {
                     Ok(tup) => {
                         if let Some(res) = result.as_mut() {
                             res.0.extend(tup.0);
@@ -234,7 +252,11 @@ impl Client {
         }
     }
 
-    fn extend_update_queue(&self, mut updates: Vec<tl::enums::Update>, chat_map: Arc<ChatMap>) {
+    fn extend_update_queue(
+        &self,
+        mut updates: Vec<(tl::enums::Update, State)>,
+        chat_map: Arc<ChatMap>,
+    ) {
         let mut state = self.0.state.write().unwrap();
 
         if let Some(limit) = self.0.config.params.update_queue_limit {
@@ -260,7 +282,7 @@ impl Client {
 
         state
             .updates
-            .extend(updates.into_iter().map(|u| (u, chat_map.clone())));
+            .extend(updates.into_iter().map(|(u, s)| (u, s, chat_map.clone())));
     }
 
     /// Synchronize the updates state to the session.

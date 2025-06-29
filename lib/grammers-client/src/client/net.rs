@@ -10,11 +10,10 @@ use super::{Client, ClientInner, Config};
 use crate::utils;
 use grammers_mtproto::mtp;
 use grammers_mtproto::transport;
-use grammers_mtsender::ServerAddr;
 use grammers_mtsender::{
-    self as sender, AuthorizationError, InvocationError, RpcError, Sender, utils::sleep,
+    self as sender, AuthorizationError, InvocationError, RpcError, Sender, ServerAddr, utils::sleep,
 };
-use grammers_session::{ChatHashCache, MessageBox};
+use grammers_session::{ChatHashCache, MessageBoxes, UpdatesLike};
 use grammers_tl_types::{self as tl, Deserializable};
 use log::{debug, info};
 use sender::Enqueuer;
@@ -209,14 +208,14 @@ impl Client {
         let (sender, request_tx) = connect_sender(dc_id, &config).await?;
         let message_box = if config.params.catch_up {
             if let Some(state) = config.session.get_state() {
-                MessageBox::load(state)
+                MessageBoxes::load(state)
             } else {
-                MessageBox::new()
+                MessageBoxes::new()
             }
         } else {
             // If the user doesn't want to bother with catching up on previous update, start with
             // pristine state instead.
-            MessageBox::new()
+            MessageBoxes::new()
         };
 
         // Pre-allocate the right `VecDeque` size if a limit is given.
@@ -422,7 +421,7 @@ impl Connection {
         }
     }
 
-    pub(crate) async fn invoke<R: tl::RemoteCall, F: Fn(Vec<tl::enums::Updates>)>(
+    pub(crate) async fn invoke<R: tl::RemoteCall, F: Fn(Vec<UpdatesLike>)>(
         &self,
         request: &R,
         flood_sleep_threshold: u32,
@@ -465,7 +464,7 @@ impl Connection {
         }
     }
 
-    async fn step(&self) -> Result<Vec<tl::enums::Updates>, sender::ReadError> {
+    async fn step(&self) -> Result<Vec<UpdatesLike>, sender::ReadError> {
         let ticket_number = self.step_counter.load(Ordering::SeqCst);
         let mut sender = self.sender.lock().await;
         match self.step_counter.compare_exchange(
