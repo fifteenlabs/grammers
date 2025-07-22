@@ -214,13 +214,54 @@ impl MessageIter {
         )
     }
 
+    /// Sets the ID of the message from which to start fetching the history.
+    ///
+    /// If a positive value is provided, the method will return only messages with IDs less than `offset_id`.
+    /// If a negative value is provided, the method will return only messages with IDs greater than `offset_id`.
     pub fn offset_id(mut self, offset: i32) -> Self {
         self.request.offset_id = offset;
         self
     }
 
+    /// Sets the date from which to start fetching the history.
+    ///
+    /// Only messages sent before this date will be returned.
     pub fn max_date(mut self, offset: i32) -> Self {
         self.request.offset_date = offset;
+        self
+    }
+
+    /// Number of list elements to be skipped, negative values are also accepted.
+    ///
+    /// This is useful for implementing pagination. For example, if you have fetched
+    /// messages 0-99 and want to fetch 100-199, you would set `add_offset` to 100.
+    pub fn add_offset(mut self, offset: i32) -> Self {
+        self.request.add_offset = offset;
+        self
+    }
+
+    /// Sets the maximum message ID to return.
+    ///
+    /// If a positive value is provided, only messages with IDs less than `max_id` will be returned.
+    pub fn max_id(mut self, id: i32) -> Self {
+        self.request.max_id = id;
+        self
+    }
+
+    /// Sets the minimum message ID to return.
+    ///
+    /// If a positive value is provided, only messages with IDs greater than `min_id` will be returned.
+    pub fn min_id(mut self, id: i32) -> Self {
+        self.request.min_id = id;
+        self
+    }
+
+    /// Sets a hash for pagination purposes.
+    ///
+    /// The hash is used for caching and detecting changes in the message history.
+    /// When the hash matches, the server may return a NotModified result.
+    pub fn hash(mut self, hash: i64) -> Self {
+        self.request.hash = hash;
         self
     }
 
