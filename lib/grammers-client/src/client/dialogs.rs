@@ -40,6 +40,62 @@ impl DialogIter {
         Self::from_request(client, limit, request)
     }
 
+    /// Exclude pinned dialogs from the results.
+    ///
+    /// When set to `true`, pinned dialogs will not be included in the returned list.
+    pub fn exclude_pinned(mut self, exclude: bool) -> Self {
+        self.request.exclude_pinned = exclude;
+        self
+    }
+
+    /// Set the folder ID to fetch dialogs from.
+    ///
+    /// Telegram allows organizing chats into folders. Use this to fetch dialogs
+    /// from a specific folder. Pass `None` to get dialogs from all folders.
+    pub fn folder_id(mut self, folder_id: i32) -> Self {
+        self.request.folder_id = Some(folder_id);
+        self
+    }
+
+    /// Offsets for pagination based on date.
+    ///
+    /// The date of the last message in the previous dialog list.
+    /// Used in conjunction with `offset_id` and `offset_peer` for pagination.
+    pub fn offset_date(mut self, date: i32) -> Self {
+        self.request.offset_date = date;
+        self
+    }
+
+    /// Offsets for pagination based on message ID.
+    ///
+    /// The ID of the last message in the previous dialog list.
+    /// Used in conjunction with `offset_date` and `offset_peer` for pagination.
+    pub fn offset_id(mut self, id: i32) -> Self {
+        self.request.offset_id = id;
+        self
+    }
+
+    /// Offsets for pagination based on peer.
+    ///
+    /// The peer of the last dialog in the previous dialog list.
+    /// Used in conjunction with `offset_date` and `offset_id` for pagination.
+    /// 
+    /// For the first request, use `tl::enums::InputPeer::Empty`.
+    pub fn offset_peer(mut self, peer: tl::enums::InputPeer) -> Self {
+        self.request.offset_peer = peer;
+        self
+    }
+
+    /// Sets a hash for caching purposes.
+    ///
+    /// The hash is used to detect if the dialog list has changed since the last request.
+    /// If the hash matches the current state, the server may return a NotModified result
+    /// to save bandwidth.
+    pub fn hash(mut self, hash: i64) -> Self {
+        self.request.hash = hash;
+        self
+    }
+
     /// Determines how many dialogs there are in total.
     ///
     /// This only performs a network call if `next` has not been called before.
