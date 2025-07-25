@@ -18,7 +18,7 @@ markdown = ["pulldown-cmark"]
 html = ["html5ever"]
 proxy = ["grammers-mtsender/proxy"]
 parse_invite_link = ["url"]
-serde = ["grammers-tl-types/impl-serde"]
+serde = ["dep:serde", "grammers-tl-types/impl-serde"]
 fs = ["tokio/fs"]
 default = ["fs"]
 
@@ -42,6 +42,7 @@ mime_guess = "2.0.5"
 os_info = { version = "3.8.2", default-features = false }
 pin-project-lite = "0.2"
 pulldown-cmark = { version = "0.12.1", default-features = false, optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
 tokio = { version = "1.40.0", default-features = false, features = [
     "rt",
 ] }
