@@ -69,6 +69,9 @@ impl Channel {
                             stories_hidden_min: false,
                             stories_unavailable: true,
                             signature_profiles: false,
+                            autotranslation: false,
+                            broadcast_messages_allowed: false,
+                            monoforum: false,
                             join_to_send: false,
                             id: channel.id,
                             access_hash: Some(channel.access_hash),
@@ -89,6 +92,9 @@ impl Channel {
                             level: None,
                             subscription_until_date: None,
                             bot_verification_icon: None,
+                            send_paid_messages_stars: None,
+                            forum_tabs: false,
+                            linked_monoforum_id: None,
                         },
                     }
                 } else {
@@ -179,6 +185,7 @@ impl Channel {
                 post_stories: true,
                 edit_stories: true,
                 delete_stories: true,
+                manage_direct_messages: true,
             }),
             None => None,
         }
