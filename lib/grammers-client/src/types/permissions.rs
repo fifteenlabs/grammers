@@ -8,13 +8,17 @@
 use crate::utils;
 use chrono::{DateTime, Utc};
 use grammers_tl_types as tl;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Permissions {
     pub raw: tl::types::ChatAdminRights,
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Restrictions {
     pub raw: tl::types::ChatBannedRights,
 }

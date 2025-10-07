@@ -9,20 +9,25 @@ use super::{Chat, ChatMap, Permissions, Restrictions};
 use crate::utils;
 use chrono::{DateTime, Utc};
 use grammers_tl_types as tl;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Normal {
     date: i32,
     inviter_id: Option<i64>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Creator {
     permissions: Permissions,
     rank: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Admin {
     can_edit: bool,
     inviter_id: Option<i64>,
@@ -33,6 +38,7 @@ pub struct Admin {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Banned {
     left: bool,
     kicked_by: i64,
@@ -41,9 +47,11 @@ pub struct Banned {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Left {}
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[non_exhaustive]
 pub enum Role {
     User(Normal),
