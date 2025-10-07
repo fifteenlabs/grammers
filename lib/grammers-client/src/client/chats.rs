@@ -652,8 +652,16 @@ impl Client {
                         })],
                     })
                     .await?;
-                if res.len() != 1 {
-                    panic!("fetching only one user should exactly return one user");
+                if res.is_empty() {
+                    return Err(InvocationError::Rpc(RpcError {
+                        code: 400,
+                        name: "USER_NOT_FOUND".into(),
+                        value: None,
+                        caused_by: None,
+                    }));
+                }
+                if res.len() > 1 {
+                    panic!("fetching only one user returned {} users", res.len());
                 }
                 Chat::from_user(res.pop().unwrap())
             }
@@ -667,8 +675,16 @@ impl Client {
                     tl::enums::messages::Chats::Chats(chats) => chats.chats,
                     tl::enums::messages::Chats::Slice(chat_slice) => chat_slice.chats,
                 };
-                if res.len() != 1 {
-                    panic!("fetching only one chat should exactly return one chat");
+                if res.is_empty() {
+                    return Err(InvocationError::Rpc(RpcError {
+                        code: 400,
+                        name: "CHAT_NOT_FOUND".into(),
+                        value: None,
+                        caused_by: None,
+                    }));
+                }
+                if res.len() > 1 {
+                    panic!("fetching only one chat returned {} chats", res.len());
                 }
                 Chat::from_raw(res.pop().unwrap())
             }
@@ -685,8 +701,16 @@ impl Client {
                     tl::enums::messages::Chats::Chats(chats) => chats.chats,
                     tl::enums::messages::Chats::Slice(chat_slice) => chat_slice.chats,
                 };
-                if res.len() != 1 {
-                    panic!("fetching only one chat should exactly return one chat");
+                if res.is_empty() {
+                    return Err(InvocationError::Rpc(RpcError {
+                        code: 400,
+                        name: "CHANNEL_NOT_FOUND".into(),
+                        value: None,
+                        caused_by: None,
+                    }));
+                }
+                if res.len() > 1 {
+                    panic!("fetching only one channel returned {} channels", res.len());
                 }
                 Chat::from_raw(res.pop().unwrap())
             }
