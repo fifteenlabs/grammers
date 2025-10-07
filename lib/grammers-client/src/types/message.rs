@@ -74,6 +74,7 @@ impl Message {
                 pinned: false,
                 noforwards: false, // TODO true if channel has noforwads?
                 video_processing_pending: false,
+                paid_suggested_post_stars: false,
                 invert_media: input.invert_media,
                 id: updates.id,
                 from_id: None, // TODO self
@@ -95,6 +96,7 @@ impl Message {
                         quote_text: None,
                         quote_entities: None,
                         quote_offset: None,
+                        todo_item_id: None,
                     }
                     .into()
                 }),
@@ -118,6 +120,9 @@ impl Message {
                 effect: None,
                 factcheck: None,
                 report_delivery_until_date: None,
+                paid_message_stars: None,
+                paid_suggested_post_ton: false,
+                suggested_post: None,
             }),
             fetched_in: None,
             client: client.clone(),

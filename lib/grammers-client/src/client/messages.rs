@@ -526,7 +526,7 @@ impl Client {
     ///
     /// use grammers_client::InputMessage;
     ///
-    /// client.send_message(&chat, InputMessage::text("Sneaky message").silent(true)).await?;
+    /// client.send_message(&chat, InputMessage::new().text("Sneaky message").silent(true)).await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -555,6 +555,8 @@ impl Client {
                         quote_text: None,
                         quote_entities: None,
                         quote_offset: None,
+                        monoforum_peer_id: None,
+                        todo_item_id: None,
                     }
                     .into()
                 }),
@@ -571,6 +573,8 @@ impl Client {
                 quick_reply_shortcut: None,
                 effect: None,
                 allow_paid_floodskip: false,
+                allow_paid_stars: None,
+                suggested_post: None,
             })
             .await
         } else {
@@ -588,6 +592,8 @@ impl Client {
                         quote_text: None,
                         quote_entities: None,
                         quote_offset: None,
+                        monoforum_peer_id: None,
+                        todo_item_id: None,
                     }
                     .into()
                 }),
@@ -603,6 +609,8 @@ impl Client {
                 quick_reply_shortcut: None,
                 effect: None,
                 allow_paid_floodskip: false,
+                allow_paid_stars: None,
+                suggested_post: None,
             })
             .await
         }?;
@@ -662,7 +670,7 @@ impl Client {
     /// # async fn f(chat: grammers_client::types::Chat, client: grammers_client::Client) -> Result<(), Box<dyn std::error::Error>> {
     /// use grammers_client::InputMedia;
     ///
-    /// client.send_album(&chat, vec![InputMedia::caption("A album").photo_url("https://example.com/cat.jpg")]).await?;
+    /// client.send_album(&chat, vec![InputMedia::new().caption("A album").photo_url("https://example.com/cat.jpg")]).await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -719,6 +727,8 @@ impl Client {
                         quote_text: None,
                         quote_entities: None,
                         quote_offset: None,
+                        monoforum_peer_id: None,
+                        todo_item_id: None,
                     }
                     .into()
                 }),
@@ -745,6 +755,7 @@ impl Client {
                 quick_reply_shortcut: None,
                 effect: None,
                 allow_paid_floodskip: false,
+                allow_paid_stars: None,
             })
             .await?;
 
@@ -896,12 +907,15 @@ impl Client {
             random_id: generate_random_ids(message_ids.len()),
             to_peer: chat.to_input_peer(),
             top_msg_id: None,
+            reply_to: None,
             schedule_date: None,
             send_as: None,
             noforwards: false,
             quick_reply_shortcut: None,
             allow_paid_floodskip: false,
             video_timestamp: None,
+            allow_paid_stars: None,
+            suggested_post: None,
         };
         let result = self.invoke(&request).await?;
         Ok(map_random_ids_to_messages(
@@ -1233,6 +1247,7 @@ impl Client {
         self.invoke(&tl::functions::messages::UnpinAllMessages {
             peer: chat.into().to_input_peer(),
             top_msg_id: None,
+            saved_peer_id: None,
         })
         .await?;
         Ok(())

@@ -42,6 +42,7 @@ impl Permissions {
                 post_stories: true,
                 edit_stories: true,
                 delete_stories: true,
+                manage_direct_messages: true,
             },
         }
     }

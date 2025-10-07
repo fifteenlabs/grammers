@@ -56,6 +56,7 @@ fn update_short_message(short: tl::types::UpdateShortMessage) -> tl::types::Upda
                 noforwards: false,
                 invert_media: false,
                 video_processing_pending: false,
+                paid_suggested_post_stars: false,
                 reactions: None,
                 id: short.id,
                 from_id: None,
@@ -87,6 +88,9 @@ fn update_short_message(short: tl::types::UpdateShortMessage) -> tl::types::Upda
                 effect: None,
                 factcheck: None,
                 report_delivery_until_date: None,
+                paid_message_stars: None,
+                paid_suggested_post_ton: false,
+                suggested_post: None,
             }
             .into(),
             pts: short.pts,
@@ -115,6 +119,7 @@ fn update_short_chat_message(
                 noforwards: false,
                 invert_media: false,
                 video_processing_pending: false,
+                paid_suggested_post_stars: false,
                 reactions: None,
                 id: short.id,
                 from_id: Some(
@@ -151,6 +156,9 @@ fn update_short_chat_message(
                 effect: None,
                 factcheck: None,
                 report_delivery_until_date: None,
+                paid_message_stars: None,
+                paid_suggested_post_ton: false,
+                suggested_post: None,
             }
             .into(),
             pts: short.pts,
@@ -246,6 +254,8 @@ pub(super) fn adapt(updates: UpdatesLike) -> Result<tl::types::UpdatesCombined, 
                         invert_media: request.invert_media,
                         offline: false,
                         video_processing_pending: false,
+                        paid_suggested_post_stars: false,
+                        paid_suggested_post_ton: false,
                         id: update.id,
                         from_id: request.send_as.as_ref().map(peer_from_input_peer),
                         from_boosts_applied: None,
@@ -254,36 +264,41 @@ pub(super) fn adapt(updates: UpdatesLike) -> Result<tl::types::UpdatesCombined, 
                         fwd_from: None,
                         via_bot_id: None,
                         via_business_bot_id: None,
-                        reply_to: request.reply_to.map(|r| match r {
-                            tl::enums::InputReplyTo::Message(i) => {
-                                tl::enums::MessageReplyHeader::Header(
-                                    tl::types::MessageReplyHeader {
-                                        reply_to_scheduled: false,
-                                        forum_topic: false,
-                                        quote: i.quote_offset.is_some(),
-                                        reply_to_msg_id: Some(i.reply_to_msg_id),
-                                        reply_to_peer_id: i
-                                            .reply_to_peer_id
-                                            .as_ref()
-                                            .map(peer_from_input_peer),
-                                        reply_from: None,
-                                        reply_media: None,
-                                        reply_to_top_id: i.top_msg_id,
-                                        quote_text: i.quote_text,
-                                        quote_entities: i.quote_entities,
-                                        quote_offset: i.quote_offset,
-                                    },
-                                )
-                            }
-                            tl::enums::InputReplyTo::Story(i) => {
-                                tl::enums::MessageReplyHeader::MessageReplyStoryHeader(
-                                    tl::types::MessageReplyStoryHeader {
-                                        peer: peer_from_input_peer(&i.peer),
-                                        story_id: i.story_id,
-                                    },
-                                )
-                            }
-                        }),
+                        reply_to: request
+                            .reply_to
+                            .map(|r| match r {
+                                tl::enums::InputReplyTo::Message(i) => {
+                                    Some(tl::enums::MessageReplyHeader::Header(
+                                        tl::types::MessageReplyHeader {
+                                            reply_to_scheduled: false,
+                                            forum_topic: false,
+                                            quote: i.quote_offset.is_some(),
+                                            reply_to_msg_id: Some(i.reply_to_msg_id),
+                                            reply_to_peer_id: i
+                                                .reply_to_peer_id
+                                                .as_ref()
+                                                .map(peer_from_input_peer),
+                                            reply_from: None,
+                                            reply_media: None,
+                                            reply_to_top_id: i.top_msg_id,
+                                            quote_text: i.quote_text,
+                                            quote_entities: i.quote_entities,
+                                            quote_offset: i.quote_offset,
+                                            todo_item_id: None,
+                                        },
+                                    ))
+                                }
+                                tl::enums::InputReplyTo::Story(i) => {
+                                    Some(tl::enums::MessageReplyHeader::MessageReplyStoryHeader(
+                                        tl::types::MessageReplyStoryHeader {
+                                            peer: peer_from_input_peer(&i.peer),
+                                            story_id: i.story_id,
+                                        },
+                                    ))
+                                }
+                                tl::enums::InputReplyTo::MonoForum(_) => None,
+                            })
+                            .flatten(),
                         date: update.date,
                         message: request.message,
                         media: update.media,
@@ -307,6 +322,8 @@ pub(super) fn adapt(updates: UpdatesLike) -> Result<tl::types::UpdatesCombined, 
                         effect: request.effect,
                         factcheck: None,
                         report_delivery_until_date: None,
+                        paid_message_stars: None,
+                        suggested_post: None,
                     }
                     .into(),
                     pts: update.pts,
@@ -692,7 +709,6 @@ impl PtsInfo {
                 pts: u.qts,
                 count: u.messages.len() as i32,
             }),
-            BroadcastRevenueTransactions(_) => None,
             StarsBalance(_) => None,
             BusinessBotCallbackQuery(_) => None,
             StarsRevenueStatus(_) => None,
@@ -702,6 +718,7 @@ impl PtsInfo {
                 count: 1, // TODO unsure if 1
             }),
             PaidReactionPrivacy(_) => None,
+            _ => None,
         }
         .filter(|info| info.pts != NO_PTS)
     }
